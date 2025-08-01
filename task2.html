@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Task Timer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .glass {
+      backdrop-filter: blur(14px);
+      background-color: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background-color: rgba(255, 255, 255, 0.3);
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="flex items-center justify-center min-h-screen text-white px-4">
+  <div class="glass p-8 rounded-3xl shadow-2xl w-full max-w-xl">
+    <h1 class="text-3xl font-bold text-center mb-2">⏱ Smart Task Timer</h1>
+    <p id="currentTime" class="text-sm text-center mb-4 text-white/80"></p>
+
+    <div class="mb-4 text-center">
+      <button id="toggleMode" class="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-xl font-semibold">Switch to Stopwatch</button>
+    </div>
+
+    <div class="mb-4">
+      <label for="taskSelect" class="block text-sm font-medium mb-2">Select Task</label>
+      <select id="taskSelect" class="bg-white/10 border border-white/20 rounded-xl p-2 w-full text-white focus:outline-none">
+        <option value="boil">🥚 Boiling Eggs (6 mins)</option>
+        <option value="cake">🍰 Making Cake (25 mins)</option>
+        <option value="cookies">🍪 Making Cookies (15 mins)</option>
+        <option value="custom">⏰ Custom Timer</option>
+      </select>
+    </div>
+
+    <div id="customInput" class="mb-4 hidden">
+      <label for="customMinutes" class="text-sm">Enter Minutes:</label>
+      <input type="number" id="customMinutes" min="1" class="mt-1 p-2 w-full rounded-xl bg-white/10 border border-white/20 text-white" placeholder="Minutes">
+    </div>
+
+    <h2 id="taskTitle" class="text-xl font-semibold text-center mb-4">🥚 Boiling Eggs</h2>
+
+    <div id="display" class="text-5xl font-mono text-center mb-6">00:00</div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      <button id="startBtn" class="bg-green-500 hover:bg-green-600 py-2 rounded-xl font-semibold">Start</button>
+      <button id="pauseBtn" class="bg-yellow-500 hover:bg-yellow-600 py-2 rounded-xl font-semibold hidden">Pause</button>
+      <button id="resetBtn" class="bg-red-500 hover:bg-red-600 py-2 rounded-xl font-semibold">Reset</button>
+      <button id="lapBtn" class="bg-blue-500 hover:bg-blue-600 py-2 rounded-xl font-semibold">Lap</button>
+    </div>
+
+    <div class="max-h-48 overflow-y-auto bg-white/5 rounded-xl p-4 border border-white/10">
+      <h3 class="text-lg font-semibold mb-2 border-b border-white/10 pb-1">Lap Times</h3>
+      <ul id="lapList" class="list-decimal list-inside text-sm space-y-1 text-white/90"></ul>
+    </div>
+  </div>
+
+  <script>
+    let startTime, elapsed = 0, timerInterval;
+    let countdownMode = true;
+    let duration = 6 * 60 * 1000;
+
+    const display = document.getElementById("display");
+    const startBtn = document.getElementById("startBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const lapBtn = document.getElementById("lapBtn");
+    const lapList = document.getElementById("lapList");
+    const taskSelect = document.getElementById("taskSelect");
+    const taskTitle = document.getElementById("taskTitle");
+    const customInput = document.getElementById("customInput");
+    const customMinutes = document.getElementById("customMinutes");
+    const toggleMode = document.getElementById("toggleMode");
+    const currentTime = document.getElementById("currentTime");
+
+    function formatCountdown(ms) {
+      const min = String(Math.floor(ms / 60000)).padStart(2, '0');
+      const sec = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
+      return `${min}:${sec}`;
+    }
+
+    function updateDisplay() {
+      if (countdownMode) {
+        const remaining = Math.max(duration - elapsed, 0);
+        display.textContent = formatCountdown(remaining);
+        if (remaining <= 0) {
+          clearInterval(timerInterval);
+          alert("⏰ Time's up for " + taskSelect.options[taskSelect.selectedIndex].text);
+        }
+      } else {
+        display.textContent = formatCountdown(elapsed);
+      }
+    }
+
+    function startTimer() {
+      startTime = Date.now() - elapsed;
+      timerInterval = setInterval(() => {
+        elapsed = Date.now() - startTime;
+        updateDisplay();
+      }, 500);
+      startBtn.classList.add("hidden");
+      pauseBtn.classList.remove("hidden");
+    }
+
+    function pauseTimer() {
+      clearInterval(timerInterval);
+      startBtn.classList.remove("hidden");
+      pauseBtn.classList.add("hidden");
+    }
+
+    function resetTimer() {
+      pauseTimer();
+      elapsed = 0;
+      updateDisplay();
+      lapList.innerHTML = '';
+    }
+
+    function recordLap() {
+      const li = document.createElement("li");
+      const timeStr = countdownMode ? formatCountdown(duration - elapsed) : formatCountdown(elapsed);
+      li.textContent = `${countdownMode ? taskSelect.value : 'Stopwatch'} - ${timeStr}`;
+      lapList.appendChild(li);
+      lapList.scrollTop = lapList.scrollHeight;
+    }
+
+    taskSelect.addEventListener("change", () => {
+      const task = taskSelect.value;
+      taskTitle.textContent = taskSelect.options[taskSelect.selectedIndex].text;
+
+      switch(task) {
+        case "boil": duration = 6 * 60 * 1000; customInput.classList.add("hidden"); break;
+        case "cake": duration = 25 * 60 * 1000; customInput.classList.add("hidden"); break;
+        case "cookies": duration = 15 * 60 * 1000; customInput.classList.add("hidden"); break;
+        case "custom": customInput.classList.remove("hidden"); break;
+      }
+
+      resetTimer();
+    });
+
+    customMinutes.addEventListener("input", () => {
+      duration = parseInt(customMinutes.value || 1) * 60 * 1000;
+      resetTimer();
+    });
+
+    toggleMode.addEventListener("click", () => {
+      countdownMode = !countdownMode;
+      toggleMode.textContent = countdownMode ? "Switch to Stopwatch" : "Switch to Timer";
+
+      if (!countdownMode) {
+        taskTitle.textContent = "⏱ Stopwatch Mode";
+        taskSelect.disabled = true;
+        taskSelect.classList.add("opacity-50", "cursor-not-allowed");
+        customInput.classList.add("hidden");
+      } else {
+        taskSelect.disabled = false;
+        taskSelect.classList.remove("opacity-50", "cursor-not-allowed");
+        taskTitle.textContent = taskSelect.options[taskSelect.selectedIndex].text;
+        customInput.classList.toggle("hidden", taskSelect.value !== "custom");
+      }
+
+      resetTimer();
+    });
+
+    startBtn.addEventListener("click", startTimer);
+    pauseBtn.addEventListener("click", pauseTimer);
+    resetBtn.addEventListener("click", resetTimer);
+    lapBtn.addEventListener("click", recordLap);
+
+    function updateCurrentTimeIST() {
+      const now = new Date();
+      const options = {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      };
+      currentTime.textContent = "🕒 Current Time (IST): " + now.toLocaleTimeString('en-IN', options);
+    }
+
+    setInterval(updateCurrentTimeIST, 1000);
+    updateCurrentTimeIST();
+    updateDisplay();
+  </script>
+</body>
+</html>
